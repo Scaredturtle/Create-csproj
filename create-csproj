@@ -1,0 +1,95 @@
+#!/bin/bash
+
+sln=""
+console=""
+class=""
+dirpath=""
+
+#obligatory usage example as a reminder for intent
+usage() {
+    echo "This script creates an empty C# solution and adds the project files as needed"
+    echo "The idea is to run this script and then just start building your C# application"
+    echo ""
+    echo "Usage: $0 -s <sln_name> -c <console_project_name> -l <class_library_project_name>"
+    echo "Options:"
+    echo "  -s <sln_name>                    Specify the solution name (required)."
+    echo "  -c <console_project_name>        Specify the console project name (required)."
+    echo "  -l <class_library_project_name>  Specify the class library project name (required)."
+    echo "  -p <path_to_parent_folder>       Specify the top level project folder (will be created if it doesnt exist) (optional)"
+    exit 1
+}
+
+#getopts is a built in function that used in this way can check for flagged arguments
+while getopts "s:c:l:p:" opt; do
+    case "$opt" in
+        s)
+            sln="$OPTARG"
+            ;;
+        c)
+            console="$OPTARG"
+            ;;
+        l)
+            class="$OPTARG"
+            ;;
+        p)
+            dirpath="$OPTARG"
+            ;;
+        \?)
+            usage
+            ;;
+    esac
+done
+
+#checks to be sure the 3 important parts are named
+if [ -z "$sln" ] || [ -z "$console" ] || [ -z "$class" ]; then
+    usage
+fi
+
+echo ""
+echo "Solution name: $sln"
+echo "Console project name: $console"
+echo "Class Library project name: $class"
+echo "Chosen Project Folder: $dirpath"
+echo ""
+
+#If the desired folder doesnt exist create it
+if [ ! -d "$dirpath" ]; then
+    echo "creating project folder"
+    mkdir -p "$dirpath"
+    #move into the new folder or echo the error and terminate the script
+    cd "$dirpath" || { echo "Error: Unable to change to the desired folder"; exit 1; }
+fi
+
+#create solution (.sln)
+dotnet new sln -n "$sln"
+
+#Create Console (.csproj)
+dotnet new console -n "$console"
+
+#Create Class Library (.csproj)
+dotnet new classlib -n "$class"
+
+#Check that the important files have been created, if not term the script.
+if [ -f "$sln.sln" ] && [ -f "$console/$console.csproj" ] && [ -f "$class/$class.csproj" ]; then
+    echo "Project created successfully!"
+else
+    echo "Error creating project"
+    echo "Removing failed files" #add a rm for the top level folder
+    exit 1
+fi
+
+#The next 2 lines add all .csproj files in the project to the sln.
+dotnet sln "$sln.sln" add "$console/$console.csproj"
+
+dotnet sln "$sln.sln" add "$class/$class.csproj"
+
+dotnet add "$console/$console.csproj" reference "$class/$class.csproj"
+
+echo ""
+echo ""
+echo "Project created and referenced correctly"
+echo ""
+echo "Warning: the .json files for debugging habe not been created"
+echo "If you are using VS Code with the C# plugin please open:"
+echo "$dirpath/$console"
+echo "When that folder is open the plugin will ask to create them"
